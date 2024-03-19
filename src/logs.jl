@@ -2,10 +2,7 @@ import Base
 
 @enum ScriptStatus start ok ko
 SCRIPT_UNIQ = ""
-function op_start(dbCnx = nothing, comment::String = "")
-	if isnothing(dbCnx)
-		dbCnx = dbConnection
-	end
+function op_start(dbCnx; comment::String = "")
 	global SCRIPT_UNIQ = string(round(Int, datetime2unix(now())*1000), base = 35)
 	script_name = splitext(Base.Filesystem.basename(PROGRAM_FILE))[1]
 	sql = "INSERT INTO script_history (script, time, state ,uniq ,comment)
@@ -20,16 +17,17 @@ function op_stop(returnValue::ScriptStatus, dbCnx::DBInterface.Connection; comme
 	DBInterface.execute(dbCnx,sql)
 	DBInterface.close!(dbCnx)
 end
-function op_getPreviousScriptTime(returnValue::ScriptStatus; dbCnx::DBInterface.Connection)
+function getPreviousScriptTime(returnValue::ScriptStatus, dbCnx::DBInterface.Connection; script_name=nothing)
+	if isnothing(script_name)
+		script_name = splitext(Base.Filesystem.basename(PROGRAM_FILE))[1]
+	end
 	sql = "SELECT max(t) FROM (
 			SELECT min(`time`) t, GROUP_CONCAT(state) s 
 			FROM script_history
-			WHERE script='"*SCRIPT_NAME*"'
+			WHERE script='"*script_name*"'
 			GROUP BY uniq HAVING count(*)>=2 AND s='start,ok'
 		) a"
-	if DEBUG
-		println("SQL:",sql)
-	end
+	# if DEBUG; println("SQL:",sql); end
 	res = DBInterface.execute(dbCnx,sql)
 	for row in res
 		return row[1]
