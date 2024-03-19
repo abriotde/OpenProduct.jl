@@ -92,7 +92,7 @@ function getKey(array::Dict, keys, defaultValue)
 	defaultValue
 end
 
-function getWebSiteStatus(url)
+function getWebSiteStatus(url; dbConnection=nothing)
 	# println("getWebSiteStatus(",url,")")
 	websiteStatus = "unknown"
 	try
@@ -117,7 +117,7 @@ function getWebSiteStatus(url)
 			if m==nothing
 				newUrl = "https://"*url
 				ok = getWebSiteStatus(newUrl)
-				if ok=="ok"
+				if ok=="ok" && !isnothing(dbConnection)
 					println("Change URL : ",url," => ",newUrl)
 					sql2 = "UPDATE producer
 						SET website='"*newUrl*"'
@@ -133,8 +133,7 @@ function getWebSiteStatus(url)
 			println("Status: for ", err)
 			exit(1)
 		else
-			println("ERROR:",err)
-			exit(1);
+			println("ERROR:",err," for ", url)
 		end
 	end
 	# print("getWebSiteStatus(",url,") => ", websiteStatus)
