@@ -1,0 +1,16 @@
+name = "OpenProduct"
+uuid = "7831b99e-859c-4899-9994-c931a422d6ae"
+authors = ["alberic <alberic.delacrochais@protonmail.com>"]
+version = "0.1.0"
+
+[deps]
+Cascadia = "54eefc05-d75b-58de-a785-1a3403f0919f"
+DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+GZip = "92fee26a-97fe-5a0c-ad85-20a5f3185b63"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+MySQL = "39abe10b-433b-5dbd-92d4-e302a9df00cd"
+StringDistances = "88034a9c-02f8-509d-84a9-84ec65e18404"
+URIs = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
