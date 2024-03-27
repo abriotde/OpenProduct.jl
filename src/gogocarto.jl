@@ -11,7 +11,7 @@ function getdatas_gogocarto(source::AbstractString; usecacheFile=false)::GogoCar
 	try
 		if(DEBUG); println("getdatas_gogocarto()"); end
 		tmpfile = "./query_gogocarto.json"
-		adressAPIurl = "https://"*source*".gogocarto.fr/api/elements.json?limit=1000&categories="
+		adressAPIurl = "https://"*source*".gogocarto.fr/api/elements.json?categories="
 		if usecacheFile && isfile(tmpfile)
 			datas = read(tmpfile, String) |> JSON.parse;
 		else
