@@ -8,6 +8,7 @@ const GogoCartoDict = Dict
 Use https://overpass-turbo.eu to create query
 =#
 function getdatas_gogocarto(source::AbstractString; usecacheFile=false)::GogoCartoDict
+	global DEBUG
 	try
 		if(DEBUG); println("getdatas_gogocarto()"); end
 		tmpfile = "./query_gogocarto.json"
@@ -41,7 +42,7 @@ function getCategory(name::AbstractString)::Union{Missing, CategoryRow}
 		return CategoryMap[name]
 	else
 		sql ="SELECT id,fr,category,parent FROM produce WHERE fr=?"
-		sqlGetCategoryByFR = DBInterface.prepare(dbConnection, sql)
+		sqlGetCategoryByFR = DBInterface.prepare(GetConnection(), sql)
 		res = DBInterface.execute(sqlGetCategoryByFR, [name])
 		cat = missing
 		for row in res
@@ -57,7 +58,7 @@ function getCategory(id::Integer)::CategoryRow
 		return CategoryIdMap[id]
 	else
 		sql ="SELECT id,fr,category,parent FROM produce WHERE id=?"
-		sqlGetCategory = DBInterface.prepare(dbConnection, sql)
+		sqlGetCategory = DBInterface.prepare(GetConnection(), sql)
 		res = DBInterface.execute(sqlGetCategory, [id])
 		cat = missing
 		for row in res
@@ -101,10 +102,6 @@ function getDate(dateTU::String)::DateTime
 end
 GOGOCARTO_LASTEXPORT_DATE="2024-03-11T09:41:45+01"
 
-
-function getOpenProductProducer(producer::DBInterface.Cursor)::OpenProductProducer
-	# TODO
-end
 #=
 	@return OpenProductProducer
 =#

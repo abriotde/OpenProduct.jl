@@ -38,6 +38,9 @@ PRODUCER_UPDATE_FIELDS_KEY = [
 	:phoneNumber, :phoneNumber2, :siret, :email, :website, 
 	:shortDescription, :text, :openingHours, :categories
 ]
+@memoize function GetConnection()
+	nothing
+end
 
 function dbConnect(dbConfFilepath)::DBInterface.Connection
 	# DB_CONFIGURATION_FILE = "../../openproduct-web/db/connection.yml"
@@ -61,21 +64,21 @@ sqlInsertTagLink = nothing
 function mysql_get_sqlSelectTag()
 	if isnothing(sqlSelectTag)
 		sql = "SELECT * FROM produce WHERE fr like ?"
-		global sqlSelectTag = DBInterface.prepare(dbConnection, sql)
+		global sqlSelectTag = DBInterface.prepare(GetConnection(), sql)
 	end
 	sqlSelectTag
 end
 function mysql_get_sqlInsertTag()
 	if isnothing(sqlInsertTag)
 		sql = "INSERT INTO produce(fr) VALUES (?)"
-		global sqlInsertTag = DBInterface.prepare(dbConnection, sql)
+		global sqlInsertTag = DBInterface.prepare(GetConnection(), sql)
 	end
 	sqlInsertTag
 end
 function mysql_get_sqlInsertTagLink()
 	if isnothing(sqlInsertTagLink)
 		sql = "INSERT IGNORE INTO product_link(producer, produce) VALUES (?,?)"
-		global sqlInsertTagLink = DBInterface.prepare(dbConnection, sql)
+		global sqlInsertTagLink = DBInterface.prepare(GetConnection(), sql)
 	end
 	sqlInsertTagLink
 end
@@ -135,7 +138,7 @@ function mysql_get_sqlSearchXY()
 			WHERE (latitude between ?-0.001 AND ?+0.001
 				AND longitude between ?-0.001 AND ?+0.001
 			) OR name like ?"
-		global sqlSearchXY = DBInterface.prepare(dbConnection, sql)
+		global sqlSearchXY = DBInterface.prepare(GetConnection(), sql)
 	end
 	sqlSearchXY
 end
@@ -201,7 +204,7 @@ function mysql_get_sqlInsert()
 			sep = ","
 		end
 		# println("SQL:",sql)
-		sqlInsert = DBInterface.prepare(dbConnection, sql)
+		sqlInsert = DBInterface.prepare(GetConnection(), sql)
 	end
 	sqlInsert
 end
@@ -218,7 +221,11 @@ function insert(producer::OpenProductProducer)::Int32
 	if !SIMULMODE
 		results = DBInterface.execute(mysql_get_sqlInsert(), values)
 		v = DBInterface.lastrowid(results)
-		convert(Int32, v)
+		if isnothing(v)
+			0
+		else
+			convert(Int32, v)
+		end
 	else
 		println("Insert producer : ", values)
 	end
@@ -236,7 +243,7 @@ function update(producerDB, producer; force=false)
 		ok, postSQL = getUpdateVal(field, dbVal, val, force)
 		if ok
 			println("DBval1:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
-			sql *= sep*"`"*string(field)*"`='"*MySQL.escape(dbConnection, val)*"'"*postSQL
+			sql *= sep*"`"*string(field)*"`='"*MySQL.escape(GetConnection(), val)*"'"*postSQL
 			sep = ", "
 		end
 	end
@@ -244,7 +251,7 @@ function update(producerDB, producer; force=false)
 		sql = "UPDATE producer SET "*sql*" WHERE id=" * string(producerDB[:id])
 		if DEBUG || SIMULMODE; println("SQL:",sql,";"); end
 		if !SIMULMODE
-			res = DBInterface.execute(dbConnection, sql)
+			res = DBInterface.execute(GetConnection(), sql)
 		end
 	end
 	producerDB[:id]
@@ -330,6 +337,8 @@ function insertOnDuplicateUpdate(producer::OpenProductProducer; forceInsert=fals
 		# if DEBUG; println("Found:", producerDB); end
 		if forceUpdate && producerDB[:lastUpdateDate]<producer.lastUpdateDate
 			force=true
+		else
+			force=false
 		end
 		update(producerDB, producer, force=force)
 		producerDB[:id]
@@ -360,7 +369,7 @@ function getAllAreas()
 		from producer
 		WHERE postCode IS NOT NULL
 		ORDER BY area"
-	areasRes = DBInterface.execute(dbConnection,sql)
+	areasRes = DBInterface.execute(GetConnection(),sql)
 	for area in areasRes
 		if area[1] === missing
 			println("Error : null postCode in producer")
