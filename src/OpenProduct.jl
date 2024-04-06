@@ -4,8 +4,8 @@ import MySQL, DBInterface, HTTP, JSON, URIs, StringDistances
 using Cascadia, YAML, Dates
 using Memoize
 
-global const SIMULMODE::Bool = true
-global const DEBUG::Bool = true
+global const SIMULMODE::Bool = false
+global const DEBUG::Bool = false
 
 if ! (typeof(DEBUG) <: Bool)
 	println("ERROR : Missing DEBUG constant (Bool)")

@@ -95,7 +95,7 @@ function complete(producer::OpenProductProducer)
 		producer.lat = lat
 		producer.lon = lon
 		producer.score = score
-		producer.postCode = postCode
+		producer.postCode = parse(Int32, postCode)
 		producer.city = city
 		producer.address = address
 	elseif (producer.city!="" && producer.postCode!="") && 
@@ -108,7 +108,7 @@ function complete(producer::OpenProductProducer)
 		producer.lat = lat
 		producer.lon = lon
 		producer.score = score
-		producer.postCode = postCode
+		producer.postCode = parse(Int32, postCode)
 		producer.city = city
 		producer.address = address
 	end
@@ -146,7 +146,7 @@ end
 	Search if the producer exists in DB
 	@return DBresult
 =#
-function search(producer::OpenProductProducer)
+function search(producer::OpenProductProducer) # ::Union{Nothing, }
 	# println("search(",producer,")")
 	name = producer.name
 	if name == ""
@@ -186,27 +186,24 @@ function search(producer::OpenProductProducer)
 	end
 	nothing
 end
-sqlInsert = nothing
-function mysql_get_sqlInsert()
-	if isnothing(sqlInsert)
-		sql::String = "Insert ignore into producer (latitude, longitude, geoprecision"
-		for field in PRODUCER_UPDATE_FIELDS
-			sql *= ",`"*field*"`"
-		end
-		sql *= ") values (?,?,?"
-		for field in PRODUCER_UPDATE_FIELDS
-			sql *= ",?"
-		end
-		sql *= ") on duplicate key update "
-		sep = ""
-		for field in PRODUCER_UPDATE_FIELDS
-			sql *= sep*"`"*field*"` = if(length(coalesce(`"*field*"`,''))<length(values(`"*field*"`)), values(`"*field*"`), `"*field*"`)"
-			sep = ","
-		end
-		# println("SQL:",sql)
-		sqlInsert = DBInterface.prepare(GetConnection(), sql)
+
+@memoize function mysql_get_sqlInsert()
+	sql::String = "Insert ignore into producer (latitude, longitude, geoprecision"
+	for field in PRODUCER_UPDATE_FIELDS
+		sql *= ",`"*field*"`"
 	end
-	sqlInsert
+	sql *= ") values (?,?,?"
+	for field in PRODUCER_UPDATE_FIELDS
+		sql *= ",?"
+	end
+	sql *= ") on duplicate key update "
+	sep = ""
+	for field in PRODUCER_UPDATE_FIELDS
+		sql *= sep*"`"*field*"` = if(length(coalesce(`"*field*"`,''))<length(values(`"*field*"`)), values(`"*field*"`), `"*field*"`)"
+		sep = ","
+	end
+	# println("SQL:",sql)
+	sqlInsert = DBInterface.prepare(GetConnection(), sql)
 end
 function insert(producer::OpenProductProducer)::Int32
 	complete(producer)
@@ -215,9 +212,7 @@ function insert(producer::OpenProductProducer)::Int32
 		producer.address, producer.phoneNumber, producer.phoneNumber2, producer.siret, producer.email, producer.website,
 		producer.shortDescription, producer.text, producer.openingHours, producer.categories
 	]
-	if DEBUG
-		println("Insert producer : ", values)
-	end
+	println("Insert producer : ", values)
 	if !SIMULMODE
 		results = DBInterface.execute(mysql_get_sqlInsert(), values)
 		v = DBInterface.lastrowid(results)
@@ -227,7 +222,7 @@ function insert(producer::OpenProductProducer)::Int32
 			convert(Int32, v)
 		end
 	else
-		println("Insert producer : ", values)
+		0
 	end
 end
 
@@ -240,16 +235,16 @@ function update(producerDB, producer; force=false)
 	for field in PRODUCER_UPDATE_FIELDS_KEY
 		dbVal = producerDB[field]
 		val = getfield(producer, field)
-		ok, postSQL = getUpdateVal(field, dbVal, val, force)
+		ok, postSQL = getUpdateVal(producerDB, field, dbVal, val, force)
 		if ok
-			println("DBval1:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
+			# println("DBval1:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
 			sql *= sep*"`"*string(field)*"`='"*MySQL.escape(GetConnection(), val)*"'"*postSQL
 			sep = ", "
 		end
 	end
 	if sql!=""
 		sql = "UPDATE producer SET "*sql*" WHERE id=" * string(producerDB[:id])
-		if DEBUG || SIMULMODE; println("SQL:",sql,";"); end
+		println("SQL:",sql,";")
 		if !SIMULMODE
 			res = DBInterface.execute(GetConnection(), sql)
 		end
@@ -257,7 +252,7 @@ function update(producerDB, producer; force=false)
 	producerDB[:id]
 end
 
-function getUpdateVal(field, dbVal::Union{Missing, Integer}, val::Union{Missing, Integer}, force::Bool)
+function getUpdateVal(producerDB, field, dbVal::Union{Missing, Integer}, val::Union{Missing, Integer}, force::Bool)
 	if ismissing(val) || val=="NULL"
 		val = 0
 	end
@@ -275,7 +270,7 @@ function getUpdateVal(field, dbVal::Union{Missing, Integer}, val::Union{Missing,
 	end
 	[ok, postSQL]
 end
-function getUpdateVal(field, dbVal::Union{Missing, String}, val::Union{Missing, String}, force::Bool)
+function getUpdateVal(producerDB, field, dbVal::Union{Missing, String}, val::Union{Missing, String}, force::Bool)
 	if ismissing(val) || val=="NULL"
 		val = ""
 	end
@@ -315,7 +310,7 @@ function getUpdateVal(field, dbVal::Union{Missing, String}, val::Union{Missing, 
 			postSQL=",status='hs'"
 		end
 	end
-	if ok
+	if false
 		println("DBval2:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
 	end
 	[ok, postSQL]

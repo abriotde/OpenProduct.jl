@@ -116,9 +116,14 @@ function getOpenProductProducer(producer::GogoCartoDict, source::AbstractString)
 	postCode = parse(Int32, getKey(addr, ["postalCode"], "0"))
 	if postCode==0; postCode = missing; end
 	shortDescription = categories = ""
-	c = producer["categories"][1]
-	categories = getCategoriesString(c)
-	shortDescription = c
+	if length(producer["categories"])>0
+		c = producer["categories"][1]
+		shortDescription = c
+		categories = getCategoriesString(c)
+	else
+		shortDescription = ""
+		categories = ""
+	end
 	score = 0.99
 	openingHours = text = website = phoneNumber = phoneNumber2 = email = siret = ""
 	lastUpdateDate = Date("2019-01-01")
@@ -159,16 +164,19 @@ function getOpenProductProducer(producer::GogoCartoDict, source::AbstractString)
 		lastUpdateDate = updatedAt
 		firstname = getKey(producer,["prenom"],"")
 		lastname = getKey(producer,["nom_de_famille"],"")
-		phoneNumber = getKey(producer,["telephone"],"")
-		phoneNumber2 = getKey(producer,["telephone2"],"")
+		phoneNumber = getPhoneNumber(getKey(producer,["telephone"],""))
+		phoneNumber2 = getPhoneNumber(getKey(producer,["telephone2"],""))
 		email = getKey(producer,["email"],"")
 		text = getKey(producer,["description"],"")
 		shortDescription = ""
 		# id = producer["categoriesFull"]["id"]
-		println("Producer:",producer)
+		# println("Producer:",producer)
 	else
 		println("getOpenProductProducer(",source,") : unknown source.")
 		exit(1)
+	end
+	if length(text)>1024
+		text = SubString(text, 1, prevind(text, 1024))
 	end
 	#= println("Producer:",[
 		lat, lon, score, name, firstname, lastname, city, postCode,
@@ -191,7 +199,7 @@ function query_gogocarto(source::AbstractString)::Int
 	for data in datas["data"]
 		# if DEBUG; println(data); end
 		producer = getOpenProductProducer(data, source)
-		println("Producer:",producer)
+		# println("Producer:",producer)
 		if ismissing(producer)
 			println("ERROR : Fail getOpenProductProducer()")
 		else

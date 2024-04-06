@@ -69,12 +69,16 @@ function getXYFromAddress(address)
         [0, 0, 0, 0, "", address]
     end
 end
-
+#=
+	Remove extra-chars on phone numbers.
+=#
 function getPhoneNumber(phoneString::AbstractString)
 	phoneNumber = ""
 	for c in phoneString
 		if c>='0' && c<='9'
 			phoneNumber *= c
+		elseif c=='+' # Remove international prefix
+			return getPhoneNumber("0"*(phoneString[4:end]))
 		end
 	end
 	phoneNumber
