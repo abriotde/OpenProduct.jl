@@ -87,7 +87,7 @@ function getPhoneNumber(phoneString::Integer)
 	"0"*string(phoneString)
 end
 
-function getKey(array::Dict, keys, defaultValue)
+function getKey(array::Dict, keys, defaultValue=nothing)
 	for key in keys
 		if haskey(array, key) && array[key]!==nothing
 			return array[key]

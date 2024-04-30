@@ -23,7 +23,7 @@ mutable struct OpenProductProducer
 	lastUpdateDate::DateTime
 end
 OpenProductProducer() = OpenProductProducer(
-	0.0,0.0,0.0,"","","","","","","","","","","","","","","","","",now()
+	0.0,0.0,0.0,"","","","",missing,"","","","","","","","","","","","",now()
 )
 
 PRODUCER_UPDATE_FIELDS = [
