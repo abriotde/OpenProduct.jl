@@ -31,6 +31,7 @@ end
 	@return [latitude, longitude, score, postcode, city, adressName]; if nothing found, return latitude = 0
 =#
 function getAddressFromXY(latitude, longitude)
+	url = ""
 	try
 		if DEBUG; println("getAddressFromXY(",latitude, ", ", longitude,")"); end
 		ADRESS_API_URL = "https://api-adresse.data.gouv.fr/reverse/"
@@ -41,15 +42,15 @@ function getAddressFromXY(latitude, longitude)
 		# println(place)
 		props = addr["properties"]
 		coordinates = addr["geometry"]["coordinates"]
-		[coordinates[2], coordinates[1], props["score"], props["postcode"], props["city"], props["name"]]
+		[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], props["name"]]
     catch err
-        println("ERROR : fail getAddressFromXY() : ",err)
-        [0, 0, 0, 0, "", 0]
+        println("ERROR : fail getAddressFromXY(",latitude, ", ", longitude,") : ",url,"",err)
+        [0, 0, 0.0, 0, "", 0]
     end
 end
 function getXYFromAddress(address)
 	try
-		println("getXYFromAddress(",address,")")
+		# println("getXYFromAddress(",address,")")
 		ADRESS_API_URL = "https://api-adresse.data.gouv.fr/search/"
 		address = replace(strip(address), "\""=>"")
 		url = ADRESS_API_URL * "?q=" * URIs.escapeuri(address)
@@ -63,7 +64,7 @@ function getXYFromAddress(address)
 		if m!=nothing
 			address = m[1]
 		end
-		[coordinates[2], coordinates[1], props["score"], props["postcode"], props["city"], address]
+		[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], address]
     catch err
         println("ERROR : fail getXYFromAddress() : ",err)
         [0, 0, 0, 0, "", address]

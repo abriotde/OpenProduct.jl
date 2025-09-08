@@ -295,7 +295,7 @@ function getUpdateVal(producerDB, field, dbVal::Union{Missing, String}, val::Uni
 				ok = true
 			end
 		elseif field==:email
-			if producerDB[:sendEmail]=="wrongEmail"
+			if (!ismissing(producerDB[:sendEmail])) && producerDB[:sendEmail]=="wrongEmail"
 				ok = true
 				postSQL=",sendEmail=NULL"
 			end
@@ -321,6 +321,9 @@ end
 function insertOnDuplicateUpdate(producer::OpenProductProducer; forceInsert=false, forceUpdate=false)::Int32
 	producerDB = search(producer)
 	if producerDB==nothing
+		if producer.text==""
+			producer.text = producer.shortDescription
+		end
 		if (forceInsert || producer.email!="" || producer.phoneNumber!="" || producer.website!="" || producer.siret!="") && 
 				producer.text!="" && producer.name!="" && producer.categories!=""
 			insert(producer)

@@ -23,5 +23,11 @@ include("logs.jl")
 
 export op_start
 export op_stop
+export getAddressFromXY
+export getXYFromAddress
+export OpenProductProducer
+export insertOnDuplicateUpdate
+export complete
+export search
 
 end # module OpenProduct
