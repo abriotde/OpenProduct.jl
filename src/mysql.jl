@@ -4,54 +4,92 @@ mutable struct OpenProductProducer
 	lon::AbstractFloat
 	score::AbstractFloat
 	name::String
-	firstname::String
-	lastname::String
+	firstname::Union{Missing, String}
+	lastname::Union{Missing, String}
 	city::String
 	postCode::Union{Missing, Int32}
-	address::String
-	phoneNumber::String
-	phoneNumber2::String
-	siret::String
-	email::String
-	website::String
+	address::Union{Missing, String}
+	phoneNumber::Union{Missing, String}
+	phoneNumber2::Union{Missing, String}
+	siret::Union{Missing, String}
+	email::Union{Missing, String}
+	website::Vector{String}
 	shortDescription::String
 	text::String
-	openingHours::String
+	sourcekey::Union{Missing, String}
+	imageurl::Union{Missing, String}
+	openingHours::Union{Missing, String}
 	categories::String
 	startdate::String
-	enddate::String
+	enddate::Union{Missing, String}
 	lastUpdateDate::DateTime
 end
 OpenProductProducer() = OpenProductProducer(
-	0.0,0.0,0.0,"","","","",missing,"","","","","","","","","","","","",now()
+	0.0,0.0,0.0,
+	"","","",
+	"",0,"",
+	"","", # PhoneNumbers
+	"",
+	"", # email
+	[], # website
+	"","",
+	"", # openingHours
+	""
+	,"", # startdate
+	"",
+	now()
+)
+mutable struct OpenProductProducer2
+	latitude::AbstractFloat
+	longitude::AbstractFloat
+	company_name::String
+	firstname::Union{Missing, String}
+	lastname::Union{Missing, String}
+	city::String
+	post_code::Union{Missing, Int32}
+	address::Union{Missing, String}
+	phone_number_1::Union{Missing, String}
+	phone_number_2::Union{Missing, String}
+	siret_number::Union{Missing, String}
+	email::Union{Missing, String}
+	website::Vector{String}
+	short_description::String
+	description::String
+	sourcekey::Union{Missing, String}
+	imageurl::Union{Missing, String}
+	opening_hours::Union{Missing, String}
+	category::String
+	startdate::String
+	closed_at::Union{Missing, String}
+	lastUpdateDate::DateTime
+end
+
+OpenProductProducer2(p::OpenProductProducer) = OpenProductProducer2(
+	p.lat, p.lon,
+	p.name, p.firstname, p.lastname, p.city, p.postCode, p.address,
+	p.phoneNumber, p.phoneNumber2,
+	p.siret, p.email, p.website, p.shortDescription, p.text, p.sourcekey, p.imageurl,
+	p.openingHours, p.categories,
+	p.startdate, p.enddate,p.lastUpdateDate
 )
 
 PRODUCER_UPDATE_FIELDS = [
-	"name", "firstname", "lastname", 
-	"city", "postCode", "address", 
-	"phoneNumber", "phoneNumber2", "siret", "email", "website", 
-	"shortDescription", "text", "openingHours", "categories"
+	"company_name", "firstname", "lastname", 
+	"city", "post_code", "address", 
+	"phone_number_1", "phone_number_2", "siret_number", "email", "website_1", "website_2", "website_3", 
+	"short_description", "description", "opening_hours", "category"
 ]
 PRODUCER_UPDATE_FIELDS_KEY = [
-	:name, :firstname, :lastname, 
-	:city, :postCode, :address, 
-	:phoneNumber, :phoneNumber2, :siret, :email, :website, 
-	:shortDescription, :text, :openingHours, :categories
+	:company_name, :firstname, :lastname, 
+	:city, :post_code, :address, 
+	:phone_number_1, :phone_number_2, :siret_number, :email, :website_1, :website_2, :website_3,
+	:short_description, :description, :opening_hours, :category
 ]
-@memoize function GetConnection()
-	nothing
-end
+# function get_connection()
+# 	println("GetConnection => nothing")
+# 	nothing
+# end
 
-function dbConnect(dbConfFilepath)::DBInterface.Connection
-	# DB_CONFIGURATION_FILE = "../../openproduct-web/db/connection.yml"
-	dbconfiguration = YAML.load_file(dbConfFilepath)
-	dbconf = dbconfiguration["dev"]
-	DBInterface.connect(MySQL.Connection, 
-		dbconf["host"], dbconf["username"], dbconf["password"], 
-		db=dbconf["database"],
-		opts=Dict("found_rows"=>true)
-	)
-end
 DATEFORMAT_MYSQL = nothing
 function mysql_get_dateformat()
 	if isnothing(DATEFORMAT_MYSQL)
@@ -61,24 +99,24 @@ function mysql_get_dateformat()
 end
 sqlSelectTag = nothing
 sqlInsertTagLink = nothing
-function mysql_get_sqlSelectTag()
+function mysql_get_sqlSelectTag(dbConnection)
 	if isnothing(sqlSelectTag)
 		sql = "SELECT * FROM produce WHERE fr like ?"
-		global sqlSelectTag = DBInterface.prepare(GetConnection(), sql)
+		global sqlSelectTag = DBInterface.prepare(dbConnection, sql)
 	end
 	sqlSelectTag
 end
-function mysql_get_sqlInsertTag()
+function mysql_get_sqlInsertTag(dbConnection)
 	if isnothing(sqlInsertTag)
 		sql = "INSERT INTO produce(fr) VALUES (?)"
-		global sqlInsertTag = DBInterface.prepare(GetConnection(), sql)
+		global sqlInsertTag = DBInterface.prepare(dbConnection, sql)
 	end
 	sqlInsertTag
 end
-function mysql_get_sqlInsertTagLink()
+function mysql_get_sqlInsertTagLink(dbConnection)
 	if isnothing(sqlInsertTagLink)
 		sql = "INSERT IGNORE INTO product_link(producer, produce) VALUES (?,?)"
-		global sqlInsertTagLink = DBInterface.prepare(GetConnection(), sql)
+		global sqlInsertTagLink = DBInterface.prepare(dbConnection, sql)
 	end
 	sqlInsertTagLink
 end
@@ -111,6 +149,21 @@ function complete(producer::OpenProductProducer)
 		producer.postCode = parse(Int32, postCode)
 		producer.city = city
 		producer.address = address
+	else
+		producer.city = strip(producer.city)
+		producer.address = strip(producer.address)
+		if producer.postCode>100000 || producer.postCode<1000
+			throw("complete() : producer.postCode is invalid : "*string(producer.postCode))
+		end
+	end
+	s = size(producer.website, 1)
+	if s>3
+		# Keep most intersting ones (remove missing, then Status ok)
+		producer.website = producer.website[1:3]
+	elseif s<3
+		for _ in [s+1:3]
+			push!(producer.website, "")
+		end
 	end
 end
 
@@ -131,33 +184,116 @@ function getSimilarityScore(p::Dict, producer::OpenProductProducer)
 	score += 10*(1/(100 ^ (dist*100)))
 	return score
 end
+function chooseTheBest(producers)
+	bestScore::AbstractFloat = 0.0
+	bestId::Int = 0
+	for (id, p) in enumerate(producers)
+		score = getSimilarityScore(p, producer)
+		if score>bestScore
+			bestId = id
+			bestScore = score
+		end
+	end
+	return producers[bestId]
+end
 sqlSearchXY = nothing
-function mysql_get_sqlSearchXY()
+function mysql_get_sqlSearchXY(dbConnection)
 	if isnothing(sqlSearchXY)
-		sql ="SELECT * FROM openproduct.producer
-			WHERE (latitude between ?-0.001 AND ?+0.001
-				AND longitude between ?-0.001 AND ?+0.001
-			) OR name like ?"
-		global sqlSearchXY = DBInterface.prepare(GetConnection(), sql)
+		sql ="SELECT * FROM producers
+			WHERE (latitude between \$1-0.001 AND \$1+0.001
+				AND longitude between \$2-0.001 AND \$2+0.001
+			)"
+		global sqlSearchXY = DBInterface.prepare(dbConnection, sql)
 	end
 	sqlSearchXY
+end
+sqlSearchAdress = nothing
+function mysql_get_sqlSearchAdress(dbConnection)
+	if isnothing(sqlSearchAdress)
+		sql ="SELECT * FROM producers
+			WHERE lower(address)=\$1 AND post_code=\$2 and lower(city)=\$3"
+		global sqlSearchAdress = DBInterface.prepare(dbConnection, sql)
+	end
+	sqlSearchAdress
+end
+sqlSearchCompanyName = nothing
+function mysql_get_sqlSearchCompanyName(dbConnection)
+	if isnothing(sqlSearchCompanyName)
+		sql ="SELECT * FROM producers WHERE lower(company_name) = \$1"
+		global sqlSearchCompanyName = DBInterface.prepare(dbConnection, sql)
+	end
+	sqlSearchCompanyName
+end
+sqlSearchSiretNumber = nothing
+function mysql_get_sqlSearchSiretNumber(dbConnection)
+	if isnothing(sqlSearchSiretNumber)
+		sql ="SELECT * FROM producers WHERE siret_number=\$1"
+		global sqlSearchSiretNumber = DBInterface.prepare(dbConnection, sql)
+	end
+	sqlSearchSiretNumber
 end
 #=
 	Search if the producer exists in DB
 	@return DBresult
 =#
-function search(producer::OpenProductProducer) # ::Union{Nothing, }
+function search(dbConnection::DBInterface.Connection, producer::OpenProductProducer) # ::Union{Nothing, }
 	# println("search(",producer,")")
+
+	# Search by company_name
+	producers = []
+	res = DBInterface.execute(mysql_get_sqlSearchCompanyName(dbConnection), [lowercase(producer.name)])
+	for producerDB in res
+		prod = Dict(propertynames(producerDB) .=> values(producerDB))
+		push!(producers, prod)
+	end
+	len = length(producers)
+	if len==1
+		return producers[1]
+	elseif len>1
+		throw("Many producers found with name = "*producer.name)
+	end
+
+	# Search by Address
+	res = DBInterface.execute(mysql_get_sqlSearchAdress(dbConnection), [
+		lowercase(producer.address), producer.postCode, lowercase(producer.city)
+	])
+	for producerDB in res
+		prod = Dict(propertynames(producerDB) .=> values(producerDB))
+		push!(producers, prod)
+	end
+	len = length(producers)
+	if len==1
+		return producers[1]
+	elseif len>1
+		throw("Many producers found with address = "*
+			producer.address*" "*string(producer.postCode)*" "*producer.city)
+	end
+
+	# Search by Siret Number
+	res = DBInterface.execute(mysql_get_sqlSearchSiretNumber(dbConnection), [producer.siret])
+	for producerDB in res
+		prod = Dict(propertynames(producerDB) .=> values(producerDB))
+		push!(producers, prod)
+	end
+	len = length(producers)
+	if len==1
+		return producers[1]
+	elseif len>1
+		throw("Many producers found with siret number = "*producer.siret)
+	end
+
+
+	# Search by lat/lon
+	if producer.lat==0 || producer.lon==0
+		complete(producer)
+	end
 	name = producer.name
 	if name == ""
 		name = "XXXXXXXXXX"
 	end
-	if producer.lat==0 || producer.lon==0
-		complete(producer)
-	end
 	lat = producer.lat
 	lon = producer.lon
-	res = DBInterface.execute(mysql_get_sqlSearchXY(), [lat, lat, lon, lon, name])
+	res = DBInterface.execute(mysql_get_sqlSearchXY(dbConnection), [lat, lon])
 	producers = []
 	numrows = 0
 	for producerDB in res
@@ -167,78 +303,78 @@ function search(producer::OpenProductProducer) # ::Union{Nothing, }
 		push!(producers, prod)
 	end
 	len = length(producers)
-	if len==0
-		return nothing
-	elseif len==1
+	if len==1
 		return producers[1]
 	elseif len>1
 		# println("\nsearch() => ",len," choice :")
-		bestScore::AbstractFloat = 0.0
-		bestId::Int = 0
-		for (id, p) in enumerate(producers)
-			score = getSimilarityScore(p, producer)
-			if score>bestScore
-				bestId = id
-				bestScore = score
-			end
-		end
-		return producers[bestId]
+		# return chooseTheBest(producers)
+		throw("Many producers found with similar location = "*lat*","*lon)
 	end
 	nothing
 end
 
-@memoize function mysql_get_sqlInsert()
-	sql::String = "Insert ignore into producer (latitude, longitude, geoprecision"
+@memoize function mysql_get_sqlInsert(dbConnection)
+	sql::String = "Insert into producers (latitude, longitude"
 	for field in PRODUCER_UPDATE_FIELDS
-		sql *= ",`"*field*"`"
+		sql *= ",\""*field*"\""
 	end
-	sql *= ") values (?,?,?"
+	sql *= ") values (\$1,\$2"
+	i=3
 	for field in PRODUCER_UPDATE_FIELDS
-		sql *= ",?"
+		sql *= ",\$"*string(i)
+		i+=1
 	end
-	sql *= ") on duplicate key update "
-	sep = ""
-	for field in PRODUCER_UPDATE_FIELDS
-		sql *= sep*"`"*field*"` = if(length(coalesce(`"*field*"`,''))<length(values(`"*field*"`)), values(`"*field*"`), `"*field*"`)"
-		sep = ","
-	end
-	# println("SQL:",sql)
-	sqlInsert = DBInterface.prepare(GetConnection(), sql)
+	sql *= ")"
+	println("SQL:",sql)
+	sqlInsert = DBInterface.prepare(dbConnection, sql)
 end
-function insert(producer::OpenProductProducer)::Int32
+function insert(dbConnection::DBInterface.Connection,
+		producer::OpenProductProducer)::Int32
 	complete(producer)
 	values = [
-		producer.lat, producer.lon, producer.score, producer.name, producer.firstname, producer.lastname, producer.city, producer.postCode,
-		producer.address, producer.phoneNumber, producer.phoneNumber2, producer.siret, producer.email, producer.website,
-		producer.shortDescription, producer.text, producer.openingHours, producer.categories
-	]
+		producer.lat, producer.lon, producer.name, producer.firstname, producer.lastname, producer.city, producer.postCode,
+		producer.address, producer.phoneNumber, producer.phoneNumber2, producer.siret, producer.email]
+	for website in producer.website
+		push!(values, website)
+	end
+	values = vcat(values, [producer.shortDescription, producer.text, producer.openingHours, producer.categories])
 	println("Insert producer : ", values)
 	if !SIMULMODE
-		results = DBInterface.execute(mysql_get_sqlInsert(), values)
-		v = DBInterface.lastrowid(results)
-		if isnothing(v)
-			0
-		else
-			convert(Int32, v)
-		end
+		results = DBInterface.execute(mysql_get_sqlInsert(dbConnection), values)
+		# v = DBInterface.lastrowid(results)
+		# if isnothing(v)
+		# 	0
+		# else
+		# 	1
+		# end
+		1
 	else
-		0
+		1
 	end
 end
 
+regexWebsiteField = r"^website_([1-3])$"
 
-function update(producerDB, producer; force=false)
+function update(dbConnection::DBInterface.Connection,producerDB, producer; force=false)
 	# complete(producer)
 	# if(DEBUG); println("update(",producerDB,", ",producer,")"); end
 	sql::String = ""
 	sep = "";
+	producer2 = OpenProductProducer2(producer)
 	for field in PRODUCER_UPDATE_FIELDS_KEY
 		dbVal = producerDB[field]
-		val = getfield(producer, field)
+		val = missing
+		field_str = string(field)
+		m = match(regexWebsiteField, field_str)
+		if m!=nothing
+			val = get(producer2.website, parse(Int, m[1]), missing)
+		else
+			val = getfield(producer2, field)
+		end
 		ok, postSQL = getUpdateVal(producerDB, field, dbVal, val, force)
 		if ok
 			# println("DBval1:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
-			sql *= sep*"`"*string(field)*"`='"*MySQL.escape(GetConnection(), val)*"'"*postSQL
+			sql *= sep*"\""*field_str*"\"='"*MySQL.escape(dbConnection, val)*"'"*postSQL
 			sep = ", "
 		end
 	end
@@ -246,13 +382,15 @@ function update(producerDB, producer; force=false)
 		sql = "UPDATE producer SET "*sql*" WHERE id=" * string(producerDB[:id])
 		println("SQL:",sql,";")
 		if !SIMULMODE
-			res = DBInterface.execute(GetConnection(), sql)
+			res = DBInterface.execute(dbConnection, sql)
 		end
+	else
+		println("Nothing to update for ", producer.name)
 	end
 	producerDB[:id]
 end
 
-function getUpdateVal(producerDB, field, dbVal::Union{Missing, Integer}, val::Union{Missing, Integer}, force::Bool)
+function getUpdateVal(producerDB, field, dbVal::Integer, val::Union{Missing, Integer}, force::Bool)
 	if ismissing(val) || val=="NULL"
 		val = 0
 	end
@@ -318,15 +456,18 @@ end
 
 #=
 =#
-function insertOnDuplicateUpdate(producer::OpenProductProducer; forceInsert=false, forceUpdate=false)::Int32
-	producerDB = search(producer)
+function insertOnDuplicateUpdate(
+		dbConnection::DBInterface.Connection,
+		producer::OpenProductProducer;
+		forceInsert=false, forceUpdate=false)::Int32
+	producerDB = search(dbConnection, producer)
 	if producerDB==nothing
 		if producer.text==""
 			producer.text = producer.shortDescription
 		end
 		if (forceInsert || producer.email!="" || producer.phoneNumber!="" || producer.website!="" || producer.siret!="") && 
 				producer.text!="" && producer.name!="" && producer.categories!=""
-			insert(producer)
+			insert(dbConnection, producer)
 		else
 			println("SKIP:",producer,"")
 			0
@@ -338,13 +479,13 @@ function insertOnDuplicateUpdate(producer::OpenProductProducer; forceInsert=fals
 		else
 			force=false
 		end
-		update(producerDB, producer, force=force)
+		update(dbConnection, producerDB, producer, force=force)
 		producerDB[:id]
 	end
 end
 
 function getTagIdDefaultInsert(tagname::AbstractString)::Int32
-	results = DBInterface.execute(mysql_get_sqlSelectTag(), [tagname])
+	results = DBInterface.execute(mysql_get_sqlSelectTag(dbConnection), [tagname])
 	for res in results
 		return res[:id]
 	end
@@ -358,7 +499,7 @@ end
 =#
 function setTagOnProducer(producerId::Int32, tagName::AbstractString)
 	tagId = getTagIdDefaultInsert(tagName)
-	DBInterface.execute(mysql_get_sqlInsertTagLink(), [producerId, tagId])
+	DBInterface.execute(mysql_get_sqlInsertTagLink(dbConnection), [producerId, tagId])
 end
 
 function getAllAreas()
@@ -367,7 +508,7 @@ function getAllAreas()
 		from producer
 		WHERE postCode IS NOT NULL
 		ORDER BY area"
-	areasRes = DBInterface.execute(GetConnection(),sql)
+	areasRes = DBInterface.execute(get_connection(),sql)
 	for area in areasRes
 		if area[1] === missing
 			println("Error : null postCode in producer")
