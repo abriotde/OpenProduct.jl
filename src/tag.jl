@@ -23,6 +23,10 @@ function Tag(tag::AbstractString)::Tag
 	end
 	return missing
 end
+function get_all_available_tags()::Dict{Int, Tag}
+	return producers_tag
+end
+
 #=
 	Convert an int encoding all tags to an explicite list of Tag
 =#
