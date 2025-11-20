@@ -49,11 +49,11 @@ function getAddressFromXY(latitude, longitude)
     end
 end
 function getXYFromAddress(address)
+	ADRESS_API_URL = "https://api-adresse.data.gouv.fr/search/"
+	address = replace(strip(address), "\""=>"")
+	url = ADRESS_API_URL * "?q=" * URIs.escapeuri(address)
 	try
 		# println("getXYFromAddress(",address,")")
-		ADRESS_API_URL = "https://api-adresse.data.gouv.fr/search/"
-		address = replace(strip(address), "\""=>"")
-		url = ADRESS_API_URL * "?q=" * URIs.escapeuri(address)
 		# println("CALL: ",url)
 		response = HTTP.get(url)
 		jsonDatas = response.body |> String |> JSON.parse
@@ -66,7 +66,7 @@ function getXYFromAddress(address)
 		end
 		[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], address]
     catch err
-        println("ERROR : fail getXYFromAddress() : ",err)
+        println("ERROR : fail getXYFromAddress() : url=",url," ;", err)
         [0, 0, 0, 0, "", address]
     end
 end
