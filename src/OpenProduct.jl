@@ -1,6 +1,6 @@
 module OpenProduct
 
-import MySQL, DBInterface, HTTP, JSON, URIs, StringDistances
+import DBInterface, HTTP, JSON, URIs, StringDistances
 using Cascadia, YAML, Dates
 using Memoize
 

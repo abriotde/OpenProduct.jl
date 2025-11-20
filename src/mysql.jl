@@ -338,7 +338,7 @@ function insert(dbConnection::DBInterface.Connection,
 	sql = mysql_get_sqlInsert(dbConnection)
 	println("SQL:", sql, "; ", values)
 	if !SIMULMODE
-		results = DBInterface.execute(, values)
+		results = DBInterface.execute(dbConnection, sql, values)
 		# v = DBInterface.lastrowid(results)
 		# if isnothing(v)
 		# 	0
