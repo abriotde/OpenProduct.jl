@@ -1,89 +1,51 @@
 
-mutable struct OpenProductProducer
-	lat::AbstractFloat
-	lon::AbstractFloat
-	score::AbstractFloat
-	name::String
-	firstname::Union{Missing, String}
-	lastname::Union{Missing, String}
-	city::Union{Missing, String}
-	postCode::Union{Missing, Int32}
-	address::Union{Missing, String}
-	phoneNumber::Union{Missing, String}
-	phoneNumber2::Union{Missing, String}
-	siret::Union{Missing, String}
-	email::Union{Missing, String}
-	website::Vector{Union{Missing, String}}
-	shortDescription::String
-	text::String
-	sourcekey::Union{Missing, String}
-	imageurl::Union{Missing, String}
-	openingHours::Union{Missing, String}
-	categories::String
-	startdate::String
-	enddate::Union{Missing, String}
-	lastUpdateDate::DateTime
-end
-OpenProductProducer() = OpenProductProducer(
-	0.0,0.0,0.0,
-	"","","",
-	"",0,"",
-	"","", # PhoneNumbers
-	"",
-	"", # email
-	[], # website
-	"","",
-	"", # openingHours
-	""
-	,"", # startdate
-	"",
-	now()
-)
-mutable struct OpenProductProducer2
-	latitude::AbstractFloat
-	longitude::AbstractFloat
-	company_name::String
-	firstname::Union{Missing, String}
-	lastname::Union{Missing, String}
-	city::Union{Missing, String}
-	post_code::Union{Missing, Int32}
-	address::Union{Missing, String}
-	phone_number_1::Union{Missing, String}
-	phone_number_2::Union{Missing, String}
-	siret_number::Union{Missing, String}
-	email::Union{Missing, String}
-	website::Vector{Union{Missing, String}}
-	short_description::String
-	description::String
-	sourcekey::Union{Missing, String}
-	imageurl::Union{Missing, String}
-	opening_hours::Union{Missing, String}
-	category::String
-	startdate::String
-	closed_at::Union{Missing, String}
-	lastUpdateDate::DateTime
+
+OPENPRODUCT_ROOT_PATH = missing
+OPENPRODUCT_ENV = missing
+OPENPRODUCT_DB_CONNECTION = missing
+function get_connection(root_path::Union{String, Missing}=missing)
+	if !ismissing(root_path)
+		global OPENPRODUCT_ROOT_PATH = root_path
+	else
+		root_path = OPENPRODUCT_ROOT_PATH
+	end
+	global OPENPRODUCT_DB_CONNECTION
+	if ismissing(OPENPRODUCT_DB_CONNECTION)
+		# println("get_connection()", pwd())
+		if isfile(root_path*"/.env.local")
+			global OPENPRODUCT_ENV = "dev"
+			conffile = root_path*"/.env.local"
+		else
+			global OPENPRODUCT_ENV = "prod"
+			conffile = root_path*"/.env.production"
+		end
+		println("Use configuration file : ", conffile)
+		conf = TOML.parsefile(conffile)
+		DATABASE_NAME = conf["DATABASE_NAME"]
+		DATABASE_USER = conf["DATABASE_USER"]
+		DATABASE_PASSWORD = conf["DATABASE_PASSWORD"]
+		connstr = "host=localhost port=5432 dbname=$DATABASE_NAME user=$DATABASE_USER password=$DATABASE_PASSWORD";
+		# cnx = LibPQ.Connection(connstr)
+		DB_CONNECTION = DBInterface.connect(LibPQ.Connection, connstr)
+		println("Connected")
+	end
+	println("GetConnection => DB_CONNECTION")
+	return DB_CONNECTION
 end
 
-OpenProductProducer2(p::OpenProductProducer) = OpenProductProducer2(
-	p.lat, p.lon,
-	p.name, p.firstname, p.lastname, p.city, p.postCode, p.address,
-	p.phoneNumber, p.phoneNumber2,
-	p.siret, p.email, p.website, p.shortDescription, p.text, p.sourcekey, p.imageurl,
-	p.openingHours, p.categories,
-	p.startdate, p.enddate,p.lastUpdateDate
-)
+include("producer.jl")
 
 PRODUCER_UPDATE_FIELDS = [
 	"company_name", "firstname", "lastname", 
 	"city", "post_code", "address", 
 	"phone_number_1", "phone_number_2", "siret_number", "email", "website_1", "website_2", "website_3", 
-	"short_description", "description", "opening_hours", "category"
+	"short_description", "description", "opening_hours", "category", "tag"
 ]
 PRODUCER_UPDATE_FIELDS_KEY = [
 	:company_name, :firstname, :lastname, 
 	:city, :post_code, :address, 
 	:phone_number_1, :phone_number_2, :siret_number, :email, :website_1, :website_2, :website_3,
-	:short_description, :description, :opening_hours, :category
+	:short_description, :description, :opening_hours, :category, :tag
 ]
 # function get_connection()
 # 	println("GetConnection => nothing")
@@ -334,7 +296,8 @@ function insert(dbConnection::DBInterface.Connection,
 	for website in producer.website
 		push!(values, website)
 	end
-	values = vcat(values, [producer.shortDescription, producer.text, producer.openingHours, producer.categories])
+	values = vcat(values, [producer.shortDescription, producer.text, 
+		producer.openingHours, producer.categories, producer.tag])
 	sql = mysql_get_sqlInsert(dbConnection)
 	println("SQL:", sql, "; ", values)
 	if !SIMULMODE
