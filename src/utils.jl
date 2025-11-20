@@ -42,7 +42,7 @@ function getAddressFromXY(latitude, longitude)
 		# println(place)
 		props = addr["properties"]
 		coordinates = addr["geometry"]["coordinates"]
-		[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], props["name"]]
+		[coordinates[2], coordinates[1], props["score"], props["postcode"], props["city"], props["name"]]
     catch err
         println("ERROR : fail getAddressFromXY(",latitude, ", ", longitude,") : ",url,"",err)
         [0, 0, 0.0, 0, "", 0]

@@ -6,14 +6,14 @@ mutable struct OpenProductProducer
 	name::String
 	firstname::Union{Missing, String}
 	lastname::Union{Missing, String}
-	city::String
+	city::Union{Missing, String}
 	postCode::Union{Missing, Int32}
 	address::Union{Missing, String}
 	phoneNumber::Union{Missing, String}
 	phoneNumber2::Union{Missing, String}
 	siret::Union{Missing, String}
 	email::Union{Missing, String}
-	website::Vector{String}
+	website::Vector{Union{Missing, String}}
 	shortDescription::String
 	text::String
 	sourcekey::Union{Missing, String}
@@ -45,14 +45,14 @@ mutable struct OpenProductProducer2
 	company_name::String
 	firstname::Union{Missing, String}
 	lastname::Union{Missing, String}
-	city::String
+	city::Union{Missing, String}
 	post_code::Union{Missing, Int32}
 	address::Union{Missing, String}
 	phone_number_1::Union{Missing, String}
 	phone_number_2::Union{Missing, String}
 	siret_number::Union{Missing, String}
 	email::Union{Missing, String}
-	website::Vector{String}
+	website::Vector{Union{Missing, String}}
 	short_description::String
 	description::String
 	sourcekey::Union{Missing, String}
@@ -113,13 +113,6 @@ function mysql_get_sqlInsertTag(dbConnection)
 	end
 	sqlInsertTag
 end
-function mysql_get_sqlInsertTagLink(dbConnection)
-	if isnothing(sqlInsertTagLink)
-		sql = "INSERT IGNORE INTO product_link(producer, produce) VALUES (?,?)"
-		global sqlInsertTagLink = DBInterface.prepare(dbConnection, sql)
-	end
-	sqlInsertTagLink
-end
 
 
 function complete(producer::OpenProductProducer)
@@ -157,14 +150,18 @@ function complete(producer::OpenProductProducer)
 		end
 	end
 	s = size(producer.website, 1)
+	# println("Nb website:",s)
 	if s>3
 		# Keep most intersting ones (remove missing, then Status ok)
 		producer.website = producer.website[1:3]
 	elseif s<3
-		for _ in [s+1:3]
+		print("wesite:")
+		for n in s+1:3
+			print(", push", n)
 			push!(producer.website, "")
 		end
 	end
+	# println("Producer:", producer)
 end
 
 function getSimilarityScore(s1::String, s2::String)
@@ -255,12 +252,13 @@ function search(dbConnection::DBInterface.Connection, producer::OpenProductProdu
 
 	# Search by Address
 	res = DBInterface.execute(mysql_get_sqlSearchAdress(dbConnection), [
-		lowercase(producer.address), producer.postCode, lowercase(producer.city)
+		lowercase(strip(producer.address)), producer.postCode, lowercase(strip(producer.city))
 	])
 	for producerDB in res
 		prod = Dict(propertynames(producerDB) .=> values(producerDB))
 		push!(producers, prod)
 	end
+	# println("After search() by address (",lowercase(producer.address), producer.postCode, lowercase(producer.city),") : ", producers)
 	len = length(producers)
 	if len==1
 		return producers[1]
@@ -325,7 +323,6 @@ end
 		i+=1
 	end
 	sql *= ")"
-	println("SQL:",sql)
 	sqlInsert = DBInterface.prepare(dbConnection, sql)
 end
 function insert(dbConnection::DBInterface.Connection,
@@ -338,9 +335,10 @@ function insert(dbConnection::DBInterface.Connection,
 		push!(values, website)
 	end
 	values = vcat(values, [producer.shortDescription, producer.text, producer.openingHours, producer.categories])
-	println("Insert producer : ", values)
+	sql = mysql_get_sqlInsert(dbConnection)
+	println("SQL:", sql, "; ", values)
 	if !SIMULMODE
-		results = DBInterface.execute(mysql_get_sqlInsert(dbConnection), values)
+		results = DBInterface.execute(, values)
 		# v = DBInterface.lastrowid(results)
 		# if isnothing(v)
 		# 	0
@@ -355,12 +353,15 @@ end
 
 regexWebsiteField = r"^website_([1-3])$"
 
-function update(dbConnection::DBInterface.Connection,producerDB, producer; force=false)
+function update(dbConnection::DBInterface.Connection, producerDB::Dict{Symbol, Any}, 
+		producer::OpenProductProducer; force=false)
 	# complete(producer)
 	# if(DEBUG); println("update(",producerDB,", ",producer,")"); end
 	sql::String = ""
 	sep = "";
 	producer2 = OpenProductProducer2(producer)
+	values = []
+	i = 0
 	for field in PRODUCER_UPDATE_FIELDS_KEY
 		dbVal = producerDB[field]
 		val = missing
@@ -374,15 +375,17 @@ function update(dbConnection::DBInterface.Connection,producerDB, producer; force
 		ok, postSQL = getUpdateVal(producerDB, field, dbVal, val, force)
 		if ok
 			# println("DBval1:'",dbVal,"'(",typeof(dbVal),"); val:'",val,"'(",typeof(val),")")
-			sql *= sep*"\""*field_str*"\"='"*MySQL.escape(dbConnection, val)*"'"*postSQL
+			i += 1
+			sql *= sep*"\""*field_str*"\"=\$"*string(i)*postSQL
 			sep = ", "
+			push!(values, val)
 		end
 	end
 	if sql!=""
-		sql = "UPDATE producer SET "*sql*" WHERE id=" * string(producerDB[:id])
-		println("SQL:",sql,";")
+		sql = "UPDATE producers SET "*sql*" WHERE id=" * string(producerDB[:id])
+		println("SQL:",sql,";", values)
 		if !SIMULMODE
-			res = DBInterface.execute(dbConnection, sql)
+			res = DBInterface.execute(dbConnection, sql, values)
 		end
 	else
 		println("Nothing to update for ", producer.name)
@@ -390,7 +393,7 @@ function update(dbConnection::DBInterface.Connection,producerDB, producer; force
 	producerDB[:id]
 end
 
-function getUpdateVal(producerDB, field, dbVal::Integer, val::Union{Missing, Integer}, force::Bool)
+function getUpdateVal(producerDB::Dict{Symbol, Any}, field, dbVal::Integer, val::Union{Missing, Integer}, force::Bool)
 	if ismissing(val) || val=="NULL"
 		val = 0
 	end
@@ -408,7 +411,7 @@ function getUpdateVal(producerDB, field, dbVal::Integer, val::Union{Missing, Int
 	end
 	[ok, postSQL]
 end
-function getUpdateVal(producerDB, field, dbVal::Union{Missing, String}, val::Union{Missing, String}, force::Bool)
+function getUpdateVal(producerDB::Dict{Symbol, Any}, field, dbVal::Union{Missing, String}, val::Union{Missing, String}, force::Bool)
 	if ismissing(val) || val=="NULL"
 		val = ""
 	end
@@ -433,15 +436,15 @@ function getUpdateVal(producerDB, field, dbVal::Union{Missing, String}, val::Uni
 				ok = true
 			end
 		elseif field==:email
-			if (!ismissing(producerDB[:sendEmail])) && producerDB[:sendEmail]=="wrongEmail"
+			if (!ismissing(producerDB[:send_email])) && producerDB[:send_email]=="wrongEmail"
 				ok = true
-				postSQL=",sendEmail=NULL"
+				postSQL=",send_email=NULL"
 			end
 		elseif field==:website
-			status = producerDB[:websiteStatus]
+			status = producerDB[:website_status]
 			if status!="ok" && status!="unknown"
 				ok = true
-				postSQL=",websiteStatus='unknown'"
+				postSQL=",website_status='unknown'"
 			end
 		end
 		if field==:enddate && val!=""
@@ -454,6 +457,30 @@ function getUpdateVal(producerDB, field, dbVal::Union{Missing, String}, val::Uni
 	[ok, postSQL]
 end
 
+function isValidProducer(producer::OpenProductProducer)
+	contact_information = 0
+	if ismissing(producer.text) || producer.text==""
+		prinln("Warning : producer without description : ", producer)
+		return false
+	end
+	if ismissing(producer.name) || producer.name==""
+		prinln("Warning : producer without description : ", producer)
+		return false
+	end
+	if !ismissing(producer.email) && producer.email!=""
+		contact_information += 1
+	end
+	if !ismissing(producer.phoneNumber) && producer.phoneNumber!=""
+		contact_information += 1
+	end
+	if !ismissing(producer.website) && producer.website!=""
+		contact_information += 1
+	end
+	if !ismissing(producer.siret) && producer.siret!=""
+		contact_information += 1
+	end
+	contact_information>0
+end
 #=
 =#
 function insertOnDuplicateUpdate(
@@ -461,12 +488,9 @@ function insertOnDuplicateUpdate(
 		producer::OpenProductProducer;
 		forceInsert=false, forceUpdate=false)::Int32
 	producerDB = search(dbConnection, producer)
+	# println("insertOnDuplicateUpdate(forceInsert=",forceInsert,", forceUpdate=",forceUpdate,")")
 	if producerDB==nothing
-		if producer.text==""
-			producer.text = producer.shortDescription
-		end
-		if (forceInsert || producer.email!="" || producer.phoneNumber!="" || producer.website!="" || producer.siret!="") && 
-				producer.text!="" && producer.name!="" && producer.categories!=""
+		if isValidProducer(producer) || forceInsert
 			insert(dbConnection, producer)
 		else
 			println("SKIP:",producer,"")
@@ -485,21 +509,23 @@ function insertOnDuplicateUpdate(
 end
 
 function getTagIdDefaultInsert(tagname::AbstractString)::Int32
-	results = DBInterface.execute(mysql_get_sqlSelectTag(dbConnection), [tagname])
-	for res in results
-		return res[:id]
-	end
-	results = DBInterface.execute(sqlInsertTag, [tagname])
-	id = DBInterface.lastrowid(results)
-	convert(Int32, id)
+	println("TODO : getTagIdDefaultInsert()")
+	# results = DBInterface.execute(mysql_get_sqlSelectTag(dbConnection), [tagname])
+	# for res in results
+	# 	return res[:id]
+	# end
+	# results = DBInterface.execute(sqlInsertTag, [tagname])
+	# id = DBInterface.lastrowid(results)
+	# convert(Int32, id)
 end
 #=
 @param : id : id of producer
 @param : tag : tag/produce name
 =#
 function setTagOnProducer(producerId::Int32, tagName::AbstractString)
-	tagId = getTagIdDefaultInsert(tagName)
-	DBInterface.execute(mysql_get_sqlInsertTagLink(dbConnection), [producerId, tagId])
+	println("TODO : setTagOnProducer()")
+	# tagId = getTagIdDefaultInsert(tagName)
+	# DBInterface.execute(mysql_get_sqlInsertTagLink(dbConnection), [producerId, tagId])
 end
 
 function getAllAreas()
