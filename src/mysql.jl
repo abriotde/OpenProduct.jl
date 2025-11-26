@@ -266,7 +266,7 @@ function search(dbConnection::DBInterface.Connection, producer::OpenProductProdu
 	elseif len>1
 		# println("\nsearch() => ",len," choice :")
 		# return chooseTheBest(producers)
-		throw("Many producers found with similar location = "*lat*","*lon)
+		throw("Many producers found with similar location = "*string(lat)*","*string(lon))
 	end
 	nothing
 end
