@@ -157,8 +157,8 @@ sqlSearchXY = nothing
 function mysql_get_sqlSearchXY(dbConnection)
 	if isnothing(sqlSearchXY)
 		sql ="SELECT * FROM producers
-			WHERE (latitude between \$1-0.001 AND \$1+0.001
-				AND longitude between \$2-0.001 AND \$2+0.001
+			WHERE (latitude between \$1-0.0001 AND \$1+0.0001
+				AND longitude between \$2-0.0001 AND \$2+0.0001
 			)"
 		global sqlSearchXY = DBInterface.prepare(dbConnection, sql)
 	end
