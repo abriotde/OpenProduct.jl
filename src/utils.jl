@@ -51,23 +51,36 @@ end
 function getXYFromAddress(address)
 	ADRESS_API_URL = "https://api-adresse.data.gouv.fr/search/"
 	address = replace(strip(address), "\""=>"")
+	address = strip(address, [',', ';', ' ', '.'])
 	url = ADRESS_API_URL * "?q=" * URIs.escapeuri(address)
+	# println("getXYFromAddress(",address,")")
+	# println("CALL: ",url)
+	response = HTTP.get(url)
+	jsonDatas = response.body |> String |> JSON.parse
+	addr = jsonDatas["features"][1]
+	coordinates = addr["geometry"]["coordinates"]
+	props = addr["properties"]
+	m=match(Regex("(.*)\\s*"*props["postcode"]*"\\s*"*props["city"]), address)
+	if m!=nothing
+		address = m[1]
+	end
+	[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], address]
+
+end
+function getXYFromAddress2(address)
 	try
-		# println("getXYFromAddress(",address,")")
-		# println("CALL: ",url)
-		response = HTTP.get(url)
-		jsonDatas = response.body |> String |> JSON.parse
-		addr = jsonDatas["features"][1]
-		coordinates = addr["geometry"]["coordinates"]
-		props = addr["properties"]
-		m=match(Regex("(.*)\\s*"*props["postcode"]*"\\s*"*props["city"]), address)
-		if m!=nothing
-			address = m[1]
+		getXYFromAddress(address)
+	catch err
+		occurence = findfirst(',', address)
+		if isnothing(occurence)
+			return [0, 0, 0.0, 0, "", 0]
 		end
-		[coordinates[2], coordinates[1], props["score"], parse(Int32, props["postcode"]), props["city"], address]
-    catch err
-        println("ERROR : fail getXYFromAddress() : url=",url," ;", err)
-        [0, 0, 0, 0, "", address]
+        address = address[occurence[1]+1:end]
+		try
+			getXYFromAddress(address)
+		catch err
+			return [0, 0, 0.0, 0, "", 0]
+		end
     end
 end
 #=

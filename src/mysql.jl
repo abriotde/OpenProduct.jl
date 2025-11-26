@@ -117,9 +117,7 @@ function complete(producer::OpenProductProducer)
 		# Keep most intersting ones (remove missing, then Status ok)
 		producer.website = producer.website[1:3]
 	elseif s<3
-		print("wesite:")
 		for n in s+1:3
-			print(", push", n)
 			push!(producer.website, "")
 		end
 	end
@@ -423,11 +421,11 @@ end
 function isValidProducer(producer::OpenProductProducer)
 	contact_information = 0
 	if ismissing(producer.text) || producer.text==""
-		prinln("Warning : producer without description : ", producer)
+		println("Warning : producer without description : ", producer)
 		return false
 	end
 	if ismissing(producer.name) || producer.name==""
-		prinln("Warning : producer without description : ", producer)
+		prinln("Warning : producer without name : ", producer)
 		return false
 	end
 	if !ismissing(producer.email) && producer.email!=""

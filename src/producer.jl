@@ -3,25 +3,25 @@ mutable struct OpenProductProducer
 	lat::AbstractFloat
 	lon::AbstractFloat
 	score::AbstractFloat
-	name::String
-	firstname::Union{Missing, String}
-	lastname::Union{Missing, String}
-	city::Union{Missing, String}
+	name::AbstractString
+	firstname::Union{Missing, AbstractString}
+	lastname::Union{Missing, AbstractString}
+	city::Union{Missing, AbstractString}
 	postCode::Union{Missing, Int32}
-	address::Union{Missing, String}
-	phoneNumber::Union{Missing, String}
-	phoneNumber2::Union{Missing, String}
-	siret::Union{Missing, String}
-	email::Union{Missing, String}
-	website::Vector{Union{Missing, String}}
-	shortDescription::String
-	text::String
-	sourcekey::Union{Missing, String}
-	imageurl::Union{Missing, String}
-	openingHours::Union{Missing, String}
-	categories::String
-	startdate::String
-	enddate::Union{Missing, String}
+	address::Union{Missing, AbstractString}
+	phoneNumber::Union{Missing, AbstractString}
+	phoneNumber2::Union{Missing, AbstractString}
+	siret::Union{Missing, AbstractString}
+	email::Union{Missing, AbstractString}
+	website::Vector{Union{Missing, AbstractString}}
+	shortDescription::AbstractString
+	text::AbstractString
+	sourcekey::Union{Missing, AbstractString}
+	imageurl::Union{Missing, AbstractString}
+	openingHours::Union{Missing, AbstractString}
+	categories::AbstractString
+	startdate::AbstractString
+	enddate::Union{Missing, AbstractString}
 	lastUpdateDate::DateTime
 	tag::Int
 end
@@ -37,8 +37,9 @@ OpenProductProducer() = OpenProductProducer(
 	"", # openingHours
 	""
 	,"", # startdate
-	"",
-	now()
+	missing,
+	now(),
+	0
 )
 mutable struct OpenProductProducer2
 	latitude::AbstractFloat

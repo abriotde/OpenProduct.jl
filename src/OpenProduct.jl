@@ -28,6 +28,7 @@ export op_start
 export op_stop
 export getAddressFromXY
 export getXYFromAddress
+export getXYFromAddress2
 export OpenProductProducer
 export insertOnDuplicateUpdate
 export complete
